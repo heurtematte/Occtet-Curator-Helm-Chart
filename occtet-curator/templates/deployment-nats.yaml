@@ -1,0 +1,55 @@
+{{- if .Values.nats.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "occtet-curator.nats.fullname" . }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "occtet-curator.labels" . | nindent 4 }}
+    app.kubernetes.io/component: nats
+spec:
+  replicas: {{ .Values.nats.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "occtet-curator.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: nats
+  template:
+    metadata:
+      labels:
+        {{- include "occtet-curator.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: nats
+    spec:
+      containers:
+      - name: nats
+        image: "{{ .Values.nats.image.repository }}:{{ .Values.nats.image.tag }}"
+        imagePullPolicy: {{ .Values.nats.image.pullPolicy }}
+        command:
+        - nats-server
+        - "-c"
+        - "/etc/nats/nats.conf"
+        ports:
+        - name: client
+          containerPort: 4222
+          protocol: TCP
+        - name: monitoring
+          containerPort: 8222
+          protocol: TCP
+        volumeMounts:
+        - name: config
+          mountPath: /etc/nats
+        - name: data
+          mountPath: /data/jetstream
+        resources:
+          {{- toYaml .Values.nats.resources | nindent 10 }}
+      volumes:
+      - name: config
+        configMap:
+          name: {{ include "occtet-curator.nats.fullname" . }}-config
+      - name: data
+        {{- if .Values.nats.persistence.enabled }}
+        persistentVolumeClaim:
+          claimName: {{ include "occtet-curator.nats.fullname" . }}-data
+        {{- else }}
+        emptyDir: {}
+        {{- end }}
+{{- end }}

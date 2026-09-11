@@ -1,0 +1,155 @@
+{{- range $key, $service := .Values.backend.services }}
+{{- if $service.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "occtet-curator.fullname" $ }}-{{ $service.name }}
+  namespace: {{ $.Values.global.namespace }}
+  labels:
+    {{- include "occtet-curator.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/service: {{ $service.name }}
+spec:
+  replicas: {{ $service.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "occtet-curator.selectorLabels" $ | nindent 6 }}
+      app.kubernetes.io/component: backend
+      app.kubernetes.io/service: {{ $service.name }}
+  template:
+    metadata:
+      labels:
+        {{- include "occtet-curator.selectorLabels" $ | nindent 8 }}
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/service: {{ $service.name }}
+    spec:
+      {{- with $.Values.serviceAccount }}
+      serviceAccountName: {{ include "occtet-curator.serviceAccountName" $ }}
+      {{- end }}
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      initContainers:
+      - name: wait-for-postgresql
+        image: busybox:1.36
+        command: ['sh', '-c', 'until nc -z {{ include "occtet-curator.postgresql.fullname" $ }} {{ $.Values.postgresql.service.ports.postgresql }}; do echo "Waiting for PostgreSQL..."; sleep 3; done; echo "PostgreSQL is ready"']
+      - name: wait-for-nats
+        image: busybox:1.36
+        command: ['sh', '-c', 'until nc -z {{ include "occtet-curator.nats.fullname" $ }} {{ $.Values.nats.service.ports.client }}; do echo "Waiting for NATS..."; sleep 3; done; echo "NATS is ready"']
+      - name: wait-for-frontend
+        image: busybox:1.36
+        command: ['sh', '-c', 'until nc -z {{ include "occtet-curator.frontend.fullname" $ }} {{ $.Values.frontend.service.port }}; do echo "Waiting for frontend..."; sleep 3; done; echo "Frontend is ready"']
+      {{- if or (eq $key "aiCopyrightfilter") (eq $key "aiLicensematcher") }}
+      - name: wait-for-ollama
+        image: busybox:1.36
+        command: ['sh', '-c', 'until nc -z {{ include "occtet-curator.ollama.fullname" $ }} {{ $.Values.ollama.service.port }}; do echo "Waiting for Ollama..."; sleep 3; done; echo "Ollama is ready"']
+      {{- end }}
+      containers:
+      - name: {{ $service.name }}
+        image: "{{ $.Values.imageRegistry }}/{{ $service.image.repository }}:{{ $.Values.imageTag | default $service.image.tag }}"
+        imagePullPolicy: {{ $.Values.imagePullPolicy | default $service.image.pullPolicy }}
+        env:
+        - name: DB_URL
+          value: "jdbc:postgresql://{{ include "occtet-curator.postgresql.fullname" $ }}:{{ $.Values.postgresql.service.ports.postgresql }}/{{ $.Values.postgresql.auth.database }}"
+        - name: DB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ $.Values.postgresql.customUser.existingSecret }}
+              key: username
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ $.Values.postgresql.customUser.existingSecret }}
+              key: postgres-password
+        - name: NATS_URL
+          value: "nats://{{ include "occtet-curator.nats.fullname" $ }}:{{ $.Values.nats.service.ports.client }}"
+        - name: SPRING_PROFILES_ACTIVE
+          value: {{ $.Values.frontend.env.springProfilesActive | quote }}
+        {{- if or (eq $key "aiCopyrightfilter") (eq $key "aiLicensematcher") }}
+        - name: OLLAMA_BASE_URL
+          value: "http://{{ include "occtet-curator.ollama.fullname" $ }}:{{ $.Values.ollama.service.port }}/"
+        - name: OLLAMA_MODEL
+          value: {{ $.Values.ollama.model | quote }}
+        {{- end }}
+        {{- if $service.useOrtCredentials }}
+        - name: ORT_CLIENT_ID
+          value: {{ $.Values.frontend.env.ortClientId | quote }}
+        - name: ORT_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ $.Values.frontend.existingSecret }}
+              key: keycloak-client-secret
+        - name: ORT_TOKEN_URL
+          value: {{ $.Values.frontend.env.ortTokenUrl | quote }}
+        - name: ORT_BASE_URL
+          value: {{ $.Values.frontend.env.ortBaseUrl | quote }}
+        - name: ORT_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ $.Values.frontend.existingSecret }}
+              key: ort-username
+        - name: ORT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ $.Values.frontend.existingSecret }}
+              key: ort-password
+        - name: HTTPS_CA_CERT_PATH
+          value: {{ $.Values.frontend.env.httpsCaCertPath | quote }}
+        {{- end }}
+        {{- if $service.volumeMounts }}
+        - name: PROJECT_DATA_PATH
+          value: {{ $.Values.persistence.projectData.mountPath | quote }}
+        {{- end }}
+        {{- if or $service.volumeMounts $service.mountCaCerts }}
+        volumeMounts:
+        {{- if $service.volumeMounts }}
+        {{- toYaml $service.volumeMounts | nindent 8 }}
+        {{- end }}
+        {{- if $service.mountCaCerts }}
+        - name: cacerts
+          mountPath: /cacerts
+          readOnly: true
+        {{- end }}
+        {{- end }}
+        resources:
+          {{- toYaml $service.resources | nindent 10 }}
+      {{- if or $service.volumeMounts $service.mountCaCerts }}
+      volumes:
+      {{- if $service.volumeMounts }}
+      - name: project-data
+        {{- if $.Values.persistence.projectData.enabled }}
+        persistentVolumeClaim:
+          claimName: {{ include "occtet-curator.fullname" $ }}-project-data
+        {{- else }}
+        emptyDir: {}
+        {{- end }}
+      {{- end }}
+      {{- if $service.mountCaCerts }}
+      - name: cacerts
+        {{- if $.Values.frontend.caCerts.existingSecret }}
+        secret:
+          secretName: {{ $.Values.frontend.caCerts.existingSecret }}
+          optional: true
+        {{- else if $.Values.frontend.caCerts.existingConfigMap }}
+        configMap:
+          name: {{ $.Values.frontend.caCerts.existingConfigMap }}
+          optional: true
+        {{- else }}
+        emptyDir: {}
+        {{- end }}
+      {{- end }}
+      {{- end }}
+      {{- with $.Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $.Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $.Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
+{{- end }}

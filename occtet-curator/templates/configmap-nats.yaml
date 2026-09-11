@@ -1,0 +1,18 @@
+{{- if .Values.nats.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "occtet-curator.nats.fullname" . }}-config
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "occtet-curator.labels" . | nindent 4 }}
+    app.kubernetes.io/component: nats
+data:
+  nats.conf: |
+    jetstream {
+        store_dir: {{ .Values.nats.jetstream.storeDir }}
+        max_mem: {{ .Values.nats.jetstream.maxMemory }}
+        max_file: {{ .Values.nats.jetstream.maxFile }}
+        domain: {{ .Values.nats.jetstream.domain }}
+    }
+{{- end }}
