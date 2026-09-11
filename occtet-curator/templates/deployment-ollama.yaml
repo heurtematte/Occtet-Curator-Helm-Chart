@@ -1,0 +1,43 @@
+{{- if .Values.ollama.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "occtet-curator.ollama.fullname" . }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "occtet-curator.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ollama
+spec:
+  replicas: {{ .Values.ollama.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "occtet-curator.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: ollama
+  template:
+    metadata:
+      labels:
+        {{- include "occtet-curator.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: ollama
+    spec:
+      containers:
+      - name: ollama
+        image: "{{ .Values.ollama.image.repository }}:{{ .Values.ollama.image.tag }}"
+        imagePullPolicy: {{ .Values.ollama.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: 11434
+          protocol: TCP
+        volumeMounts:
+        - name: data
+          mountPath: /root/.ollama
+        resources:
+          {{- toYaml .Values.ollama.resources | nindent 10 }}
+      volumes:
+      - name: data
+        {{- if .Values.ollama.persistence.enabled }}
+        persistentVolumeClaim:
+          claimName: {{ include "occtet-curator.ollama.fullname" . }}-data
+        {{- else }}
+        emptyDir: {}
+        {{- end }}
+{{- end }}

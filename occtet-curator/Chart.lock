@@ -1,0 +1,9 @@
+dependencies:
+- name: postgres
+  repository: oci://registry-1.docker.io/cloudpirates
+  version: 0.20.4
+- name: nfs-server-provisioner
+  repository: https://kubernetes-sigs.github.io/nfs-ganesha-server-and-external-provisioner/
+  version: 1.8.0
+digest: sha256:863b96145412b94e3c6229b2f61b776f06fddb25e00f95968fededffe0e6d9a2
+generated: "2026-09-03T17:58:30.847800786+02:00"

@@ -1,0 +1,523 @@
+## @section Global parameters
+global:
+  ## @param global.namespace Namespace to deploy all resources
+  namespace: curator
+
+## @section Image registry
+imageRegistry: ghcr.io/heurtematte
+
+## @param imageTag Global image tag override for all services (overrides per-service tags)
+imageTag: ""
+
+## @param imagePullPolicy Global imagePullPolicy override for all services (Always, IfNotPresent, Never)
+imagePullPolicy: ""
+
+## @section Frontend configuration
+frontend:
+  enabled: true
+  name: frontend
+  image:
+    repository: occtet-frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  replicaCount: 1
+  
+  service:
+    type: ClusterIP
+    port: 8090
+    targetPort: 8090
+  
+  ingress:
+    enabled: false
+    className: "nginx"
+    annotations:
+      # cert-manager.io/cluster-issuer: letsencrypt-prod
+      nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+      nginx.ingress.kubernetes.io/configuration-snippet: |
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    hosts:
+      - host: curator
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+    #  - secretName: occtet-curator-tls
+    #    hosts:
+    #      - occtet-curator.local
+  
+  ## @param frontend.env Environment variables for frontend
+  env:
+    ## ORT (OSS Review Toolkit) Configuration
+    ## @param frontend.env.ortTokenUrl ORT token URL
+    ortTokenUrl: ""
+    ## @param frontend.env.ortBaseUrl ORT base URL
+    ortBaseUrl: ""
+    ## @param frontend.env.ortUsername ORT username
+    ortUsername: ""
+    ## @param frontend.env.ortPassword ORT password (use existingSecret instead)
+    ortPassword: ""
+    ## @param frontend.env.ortClientId ORT client ID for authentication
+    ortClientId: ""
+    
+    ## Keycloak Configuration
+    ## @param frontend.env.keycloakIssuerUri Keycloak issuer URI
+    keycloakIssuerUri: ""
+    ## @param frontend.env.keycloakClientId Keycloak client ID
+    keycloakClientId: ""
+    ## @param frontend.env.keycloakClientSecret Keycloak client secret (use existingSecret instead)
+    keycloakClientSecret: ""
+    
+    ## Frontend Configuration
+    ## @param frontend.env.frontendBaseUrl Frontend base URL
+    frontendBaseUrl: "http://localhost:8090"
+    
+    ## HTTPS CA Certificates
+    ## @param frontend.env.httpsCaCertPath Path to HTTPS CA certificates
+    httpsCaCertPath: "/cacerts"
+  
+    ## @param frontend.env.springProfilesActive Spring profiles to activate (e.g. "live" or "live,oidc" to enable OIDC)
+    springProfilesActive: "live"
+
+  ## @param frontend.existingSecret Name of existing secret for sensitive env vars
+  ## Secret must contain: ort-password, keycloak-client-secret
+  ## Secret is created by: make secrets-create
+  existingSecret: "occtet-curator-secrets"
+  
+  ## @param frontend.caCerts CA certificates configuration
+  caCerts:
+    ## @param frontend.caCerts.existingSecret Name of existing secret containing CA certificates
+    existingSecret: ""
+    ## @param frontend.caCerts.existingConfigMap Name of existing ConfigMap containing CA certificates
+    existingConfigMap: ""
+  
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 500m
+      memory: 2Gi
+  
+  volumeMounts:
+    - name: project-data
+      mountPath: /project_data
+    - name: cacerts
+      mountPath: /cacerts
+      readOnly: true
+
+## @section Backend services configuration
+backend:
+  services:
+    ## License Matcher Service
+    licensematcher:
+      enabled: true
+      name: licensematcher-service
+      image:
+        repository: occtet-nats-licensematcher-service
+        tag: latest
+        pullPolicy: IfNotPresent
+      replicaCount: 1
+      resources:
+        limits:
+          cpu: 1000m
+          memory: 2Gi
+        requests:
+          cpu: 250m
+          memory: 512Mi
+    
+    ## AI Copyright Filter Service
+    aiCopyrightfilter:
+      enabled: true
+      name: ai-copyrightfilter-service
+      image:
+        repository: occtet-nats-ai-copyrightfilter-service
+        tag: latest
+        pullPolicy: IfNotPresent
+      replicaCount: 1
+      resources:
+        limits:
+          cpu: 1000m
+          memory: 2Gi
+        requests:
+          cpu: 250m
+          memory: 512Mi
+    
+    ## Copyright Filter Service
+    copyrightfilter:
+      enabled: true
+      name: copyrightfilter-service
+      image:
+        repository: occtet-nats-copyrightfilter-service
+        tag: latest
+        pullPolicy: IfNotPresent
+      replicaCount: 1
+      resources:
+        limits:
+          cpu: 1000m
+          memory: 2Gi
+        requests:
+          cpu: 250m
+          memory: 512Mi
+    
+    ## FOSS Report Service
+    fossReport:
+      enabled: true
+      name: foss-report-service
+      image:
+        repository: occtet-nats-foss-report-service
+        tag: latest
+        pullPolicy: IfNotPresent
+      replicaCount: 1
+      resources:
+        limits:
+          cpu: 1000m
+          memory: 2Gi
+        requests:
+          cpu: 250m
+          memory: 512Mi
+    
+    ## Vulnerability Service
+    vulnerability:
+      enabled: true
+      name: vulnerability-service
+      image:
+        repository: occtet-nats-vulnerability-service
+        tag: latest
+        pullPolicy: IfNotPresent
+      replicaCount: 1
+      resources:
+        limits:
+          cpu: 1000m
+          memory: 2Gi
+        requests:
+          cpu: 250m
+          memory: 512Mi
+    
+    ## AI License Matcher Service
+    aiLicensematcher:
+      enabled: true
+      name: ai-licensematcher-service
+      image:
+        repository: occtet-nats-ai-licensematcher-service
+        tag: latest
+        pullPolicy: IfNotPresent
+      replicaCount: 1
+      resources:
+        limits:
+          cpu: 1000m
+          memory: 2Gi
+        requests:
+          cpu: 250m
+          memory: 512Mi
+    
+    ## SPDX Service
+    spdx:
+      enabled: true
+      name: spdx-service
+      image:
+        repository: occtet-nats-spdx-service
+        tag: 0.3.10-SNAPSHOT
+        pullPolicy: IfNotPresent
+      replicaCount: 1
+      resources:
+        limits:
+          cpu: 1000m
+          memory: 2Gi
+        requests:
+          cpu: 250m
+          memory: 512Mi
+    
+    ## CycloneDX Service
+    cyclonedx:
+      enabled: true
+      name: cyclonedx-service
+      image:
+        repository: occtet-nats-cyclonedx-service
+        tag: 0.3.8-SNAPSHOT
+        pullPolicy: IfNotPresent
+      replicaCount: 1
+      resources:
+        limits:
+          cpu: 1000m
+          memory: 2Gi
+        requests:
+          cpu: 250m
+          memory: 512Mi
+    
+    ## CycloneDX Export Service
+    cyclonedxExport:
+      enabled: true
+      name: cyclonedx-export-service
+      image:
+        repository: occtet-nats-cyclonedx-export-service
+        tag: 0.3.8-SNAPSHOT
+        pullPolicy: IfNotPresent
+      replicaCount: 1
+      resources:
+        limits:
+          cpu: 1000m
+          memory: 2Gi
+        requests:
+          cpu: 250m
+          memory: 512Mi
+    
+    ## Download Service
+    download:
+      enabled: true
+      name: download-service
+      image:
+        repository: occtet-nats-download-service
+        tag: 0.3.9-SNAPSHOT
+        pullPolicy: IfNotPresent
+      replicaCount: 1
+      resources:
+        limits:
+          cpu: 1000m
+          memory: 2Gi
+        requests:
+          cpu: 250m
+          memory: 512Mi
+      volumeMounts:
+        - name: project-data
+          mountPath: /project_data
+    
+    ## SPDX Export Service
+    spdxExport:
+      enabled: true
+      name: spdx-export-service
+      image:
+        repository: occtet-nats-spdx-export-service
+        tag: 0.3.9-SNAPSHOT
+        pullPolicy: IfNotPresent
+      replicaCount: 1
+      resources:
+        limits:
+          cpu: 1000m
+          memory: 2Gi
+        requests:
+          cpu: 250m
+          memory: 512Mi
+    
+    ## ORT Run Start Service
+    ortRunStart:
+      enabled: true
+      name: ort-run-start-service
+      image:
+        repository: occtet-nats-ort-run-start-service
+        tag: latest
+        pullPolicy: IfNotPresent
+      replicaCount: 1
+      useOrtCredentials: true
+      mountCaCerts: true
+      resources:
+        limits:
+          cpu: 1000m
+          memory: 2Gi
+        requests:
+          cpu: 250m
+          memory: 512Mi
+    
+    ## Process Run Service
+    processRun:
+      enabled: true
+      name: process-run-service
+      image:
+        repository: occtet-nats-process-run-service
+        tag: latest
+        pullPolicy: IfNotPresent
+      replicaCount: 1
+      useOrtCredentials: true
+      mountCaCerts: true
+      resources:
+        limits:
+          cpu: 1000m
+          memory: 2Gi
+        requests:
+          cpu: 250m
+          memory: 512Mi
+
+## @section PostgreSQL configuration (using cloudpirates chart with pgvector)
+postgresql:
+  enabled: true
+  
+  ## CloudPirates PostgreSQL specific configuration
+  image:
+    registry: docker.io
+    repository: pgvector/pgvector
+    tag: pg17-trixie
+  
+  auth:
+    ## Superuser is 'postgres' (default) — credentials from existingSecret
+    ## @param postgresql.auth.existingSecret Name of existing secret containing all credentials
+    ## The secret must contain key: postgres-password (for the postgres superuser)
+    existingSecret: "occtet-curator-secrets"
+
+  ## @section customUser — non-superuser app account created at initdb
+  ## Creates user + database from keys in existingSecret
+  customUser:
+    existingSecret: "occtet-curator-secrets"
+    secretKeys:
+      name: "username"           # → "curator"
+      password: "postgres-password"
+      database: "database"       # → "curator"
+
+  persistence:
+    enabled: true
+    size: 20Gi
+    storageClass: ""
+
+  initdb:
+    ## ConfigMap created by occtet-curator chart containing 01-init-db.sql
+    scriptsConfigMap: "{{ .Release.Name }}-postgresql-init"
+
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+
+  extraEnvVars:
+    - name: POSTGRESQL_MAX_CONNECTIONS
+      value: "200"
+
+  service:
+    type: ClusterIP
+    ports:
+      postgresql: 5432
+
+## @section NATS configuration
+nats:
+  enabled: true
+  name: nats
+  image:
+    repository: nats
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  replicaCount: 1
+  
+  jetstream:
+    enabled: true
+    storeDir: /data/jetstream
+    maxMemory: 512M
+    maxFile: 10G
+    domain: bitsea
+  
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: ""
+  
+  service:
+    type: ClusterIP
+    ports:
+      client: 4222
+      monitoring: 8222
+  
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 250m
+      memory: 512Mi
+
+## @section Ollama configuration
+ollama:
+  enabled: true
+  name: ollama
+  image:
+    repository: ollama/ollama
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  replicaCount: 1
+  
+  service:
+    type: ClusterIP
+    port: 11434
+    targetPort: 11434
+  
+  ## @param ollama.model Ollama model to use for AI services
+  model: "qwen3:8b"
+  
+  persistence:
+    enabled: true
+    size: 50Gi
+    storageClass: ""
+  
+  resources:
+    limits:
+      cpu: 4000m
+      memory: 8Gi
+    requests:
+      cpu: 1000m
+      memory: 4Gi
+
+## @section NFS Provisioner configuration
+## Uses nfs-ganesha-server-and-external-provisioner (kubernetes-sigs) for ReadWriteMany
+## Deploys NFS Ganesha + a dynamic provisioner — no manual PV management required
+nfsprovisioner:
+  enabled: true
+  persistence:
+    enabled: true
+    ## StorageClass for the backing RWO PVC (leave empty for cluster default)
+    storageClass: ""
+    size: 100Gi
+    accessMode: ReadWriteOnce
+  storageClass:
+    ## Name of the StorageClass created by the provisioner
+    name: nfs
+    create: true
+    defaultClass: false
+    reclaimPolicy: Retain
+    allowVolumeExpansion: true
+    mountOptions:
+      - vers=4.1
+  resources:
+    limits:
+      cpu: 500m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+## @section Persistence configuration
+persistence:
+  projectData:
+    enabled: true
+    size: 90Gi # should be lower than nfsprovisioner.persistence.size to ensure it fits on the NFS volume
+    ## AccessMode for the shared project data PVC — must be ReadWriteMany
+    accessMode: ReadWriteMany
+    ## StorageClass used only when nfsProvisioner.enabled is false
+    ## Leave empty to use the cluster default StorageClass
+    storageClass: ""
+    ## Mount path inside application containers
+    mountPath: "/project_data"
+
+## @section Service Account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+## @section Pod Security
+podSecurityContext:
+  fsGroup: 1000
+
+securityContext:
+  runAsNonRoot: false
+  runAsUser: 1000
+
+## @section Node selector and affinity
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

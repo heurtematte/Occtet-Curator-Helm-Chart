@@ -1,0 +1,24 @@
+{{- if .Values.nats.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "occtet-curator.nats.fullname" . }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "occtet-curator.labels" . | nindent 4 }}
+    app.kubernetes.io/component: nats
+spec:
+  type: {{ .Values.nats.service.type }}
+  ports:
+  - port: {{ .Values.nats.service.ports.client }}
+    targetPort: client
+    protocol: TCP
+    name: client
+  - port: {{ .Values.nats.service.ports.monitoring }}
+    targetPort: monitoring
+    protocol: TCP
+    name: monitoring
+  selector:
+    {{- include "occtet-curator.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: nats
+{{- end }}

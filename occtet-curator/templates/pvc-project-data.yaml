@@ -1,0 +1,21 @@
+{{- if .Values.persistence.projectData.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "occtet-curator.fullname" . }}-project-data
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "occtet-curator.labels" . | nindent 4 }}
+    app.kubernetes.io/component: storage
+spec:
+  accessModes:
+    - {{ .Values.persistence.projectData.accessMode }}
+  {{- if .Values.nfsprovisioner.enabled }}
+  storageClassName: {{ .Values.nfsprovisioner.storageClass.name | default "nfs" }}
+  {{- else if .Values.persistence.projectData.storageClass }}
+  storageClassName: {{ .Values.persistence.projectData.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.projectData.size }}
+{{- end }}

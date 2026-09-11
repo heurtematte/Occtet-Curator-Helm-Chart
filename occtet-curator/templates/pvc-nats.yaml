@@ -1,0 +1,19 @@
+{{- if and .Values.nats.enabled .Values.nats.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "occtet-curator.nats.fullname" . }}-data
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "occtet-curator.labels" . | nindent 4 }}
+    app.kubernetes.io/component: nats
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.nats.persistence.storageClass }}
+  storageClassName: {{ .Values.nats.persistence.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.nats.persistence.size }}
+{{- end }}

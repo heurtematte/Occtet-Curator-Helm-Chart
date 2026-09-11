@@ -1,0 +1,31 @@
+# Kubernetes Secrets - Never commit actual secrets!
+secrets.yaml
+*-secret.yaml
+*.secret.yaml
+secrets-backup.yaml
+
+# Helm specific
+.helmignore
+
+# Custom values with sensitive data
+values-*.yaml
+!values-example.yaml
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# IDE specific
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
